@@ -9,23 +9,17 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive"
 ]
 
-SPREADSHEET_NAME = (
-    "Paid_Time_Off_Manegement"
-)
+SPREADSHEET_NAME = "Paid_Time_Off_Manegement"
 
 
 def get_client():
 
-    credentials = (
-        Credentials.from_service_account_info(
-            st.secrets["gcp_service_account"],
-            scopes=SCOPES
-        )
+    credentials = Credentials.from_service_account_info(
+        st.secrets["gcp_service_account"],
+        scopes=SCOPES
     )
 
-    return gspread.authorize(
-        credentials
-    )
+    return gspread.authorize(credentials)
 
 
 def get_spreadsheet():
@@ -39,9 +33,8 @@ def get_spreadsheet():
 
 def read_sheet(sheet_name):
 
-    sheet = (
-        get_spreadsheet()
-        .worksheet(sheet_name)
+    sheet = get_spreadsheet().worksheet(
+        sheet_name
     )
 
     records = sheet.get_all_records()
@@ -52,30 +45,16 @@ def read_sheet(sheet_name):
     return pd.DataFrame(records)
 
 
-def append_row(sheet_name, row):
+def append_row(
+    sheet_name,
+    row
+):
 
-    sheet = (
-        get_spreadsheet()
-        .worksheet(sheet_name)
+    sheet = get_spreadsheet().worksheet(
+        sheet_name
     )
 
     sheet.append_row(row)
-
-
-def overwrite_leave_requests(df):
-
-    sheet = (
-        get_spreadsheet()
-        .worksheet("leave_requests")
-    )
-
-    sheet.clear()
-
-    data = [
-        df.columns.tolist()
-    ] + df.values.tolist()
-
-    sheet.update(data)
 
 
 def update_balance(user_id):
@@ -99,16 +78,9 @@ def update_balance(user_id):
         ]
     )
 
-    approved = requests_df[
-        (requests_df["user_id"] == user_id)
-        &
-        (
-            requests_df["status"]
-            == "approved"
-        )
-    ]
-
-    used_days = approved["days"].sum()
+    used_days = requests_df[
+        requests_df["user_id"] == user_id
+    ]["days"].sum()
 
     remaining_days = (
         granted_days - used_days
