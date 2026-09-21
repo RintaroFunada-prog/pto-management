@@ -1,6 +1,7 @@
-import gspread
 import pandas as pd
+import gspread
 import streamlit as st
+
 from google.oauth2.service_account import Credentials
 
 SCOPES = [
@@ -8,28 +9,42 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive"
 ]
 
-SPREADSHEET_NAME = "Paid_Time_Off_Manegement"
+SPREADSHEET_NAME = (
+    "Paid_Time_Off_Manegement"
+)
 
 
 def get_client():
-    credentials = Credentials.from_service_account_info(
-        st.secrets["gcp_service_account"],
-        scopes=SCOPES
+
+    credentials = (
+        Credentials.from_service_account_info(
+            st.secrets["gcp_service_account"],
+            scopes=SCOPES
+        )
     )
 
-    return gspread.authorize(credentials)
+    return gspread.authorize(
+        credentials
+    )
 
 
 def get_spreadsheet():
+
     client = get_client()
-    return client.open(SPREADSHEET_NAME)
+
+    return client.open(
+        SPREADSHEET_NAME
+    )
 
 
 def read_sheet(sheet_name):
-    spreadsheet = get_spreadsheet()
-    worksheet = spreadsheet.worksheet(sheet_name)
 
-    records = worksheet.get_all_records()
+    sheet = (
+        get_spreadsheet()
+        .worksheet(sheet_name)
+    )
+
+    records = sheet.get_all_records()
 
     if not records:
         return pd.DataFrame()
@@ -38,59 +53,113 @@ def read_sheet(sheet_name):
 
 
 def append_row(sheet_name, row):
-    spreadsheet = get_spreadsheet()
-    worksheet = spreadsheet.worksheet(sheet_name)
 
-    worksheet.append_row(row)
+    sheet = (
+        get_spreadsheet()
+        .worksheet(sheet_name)
+    )
+
+    sheet.append_row(row)
+
+
+def overwrite_leave_requests(df):
+
+    sheet = (
+        get_spreadsheet()
+        .worksheet("leave_requests")
+    )
+
+    sheet.clear()
+
+    data = [
+        df.columns.tolist()
+    ] + df.values.tolist()
+
+    sheet.update(data)
 
 
 def update_balance(user_id):
-    requests_df = read_sheet("leave_requests")
+
     users_df = read_sheet("users")
 
-    user = users_df[users_df["user_id"] == user_id]
+    requests_df = read_sheet(
+        "leave_requests"
+    )
+
+    user = users_df[
+        users_df["user_id"] == user_id
+    ]
 
     if user.empty:
         return
 
-    granted_days = float(user.iloc[0]["annual_grant_days"])
+    granted_days = float(
+        user.iloc[0][
+            "annual_grant_days"
+        ]
+    )
 
     approved = requests_df[
-        (requests_df["user_id"] == user_id) &
-        (requests_df["status"] == "approved")
+        (requests_df["user_id"] == user_id)
+        &
+        (
+            requests_df["status"]
+            == "approved"
+        )
     ]
 
     used_days = approved["days"].sum()
 
-    remaining_days = granted_days - used_days
+    remaining_days = (
+        granted_days - used_days
+    )
 
-    spreadsheet = get_spreadsheet()
-    worksheet = spreadsheet.worksheet("leave_balance")
+    balance_sheet = (
+        get_spreadsheet()
+        .worksheet("leave_balance")
+    )
 
-    records = worksheet.get_all_records()
+    records = (
+        balance_sheet
+        .get_all_records()
+    )
 
     found = False
 
-    for idx, row in enumerate(records, start=2):
-        if row["user_id"] == user_id:
-            worksheet.update(
-                f"A{idx}:E{idx}",
+    for i, record in enumerate(
+        records,
+        start=2
+    ):
+
+        if record["user_id"] == user_id:
+
+            balance_sheet.update(
+                f"A{i}:E{i}",
                 [[
                     user_id,
                     granted_days,
                     used_days,
                     remaining_days,
-                    pd.Timestamp.now().strftime("%Y-%m-%d")
+                    pd.Timestamp.now().strftime(
+                        "%Y-%m-%d"
+                    )
                 ]]
             )
+
             found = True
+
             break
 
     if not found:
-        worksheet.append_row([
-            user_id,
-            granted_days,
-            used_days,
-            remaining_days,
-            pd.Timestamp.now().strftime("%Y-%m-%d")
-        ])
+
+        balance_sheet.append_row(
+            [
+                user_id,
+                granted_days,
+                used_days,
+                remaining_days,
+                pd.Timestamp.now().strftime(
+                    "%Y-%m-%d"
+                )
+            ]
+        )
